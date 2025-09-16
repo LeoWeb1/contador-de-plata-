@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contador de Efectivo y Transacciones</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --color-primary: #ec4899;
+            --color-primary-dark: #db2777;
+            --color-secondary: #4f46e5;
+            --color-success: #10b981;
+            --color-warning: #f59e0b;
+            --color-danger: #ef4444;
+            --color-dark: #1f2937;
+            --color-light: #f9fafb;
+            --transition: all 0.3s ease;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-dark) 100%);
+            color: white;
+            padding: 1rem 0;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 1rem;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            transition: var(--transition);
+            margin-bottom: 1.5rem;
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+        
+        .card-header {
+            background: linear-gradient(135deg, var(--color-dark) 0%, #374151 100%);
+            color: white;
+            padding: 1rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .card-header h2 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin: 0;
+        }
+        
+        .card-body {
+            padding: 1.5rem;
+        }
+        
+        .denomination-item {
+            display: flex;
+            align-items: center;
+            padding: 1rem;
+            border-bottom: 1px solid #e5e7eb;
+            transition: var(--transition);
+        }
+        
+        .denomination-item:hover {
+            background-color: #f9fafb;
+        }
+        
+        .denomination-item:last-child {
+            border-bottom: none;
+        }
+        
+        .currency-image {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 1rem;
+            font-size: 1.5rem;
+            background: linear-gradient(135deg, #f6d365 0%, #fda085 100%);
+            color: white;
+            flex-shrink: 0;
+        }
+        
+        .bill .currency-image {
+            background: linear-gradient(135deg, #5ee7df 0%, #b490ca 100%);
+        }
+        
+        .digital .currency-image {
+            background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+            color: var(--color-dark);
+        }
+        
+        .expense .currency-image {
+            background: linear-gradient(135deg, #ff9a9e 0%, #fad0c4 100%);
+        }
+        
+        .input-container {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+        }
+        
+        .input-field {
+            width: 100px;
+            padding: 0.5rem;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: 600;
+            transition: var(--transition);
+        }
+        
+        .input-field:focus {
+            border-color: var(--color-primary);
+            outline: none;
+        }
+        
+        .total-display {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--color-dark);
+            text-align: center;
+            padding: 1.5rem;
+            background: linear-gradient(135deg, #d4fc79 0%, #96e6a1 100%);
+            border-radius: 12px;
+            margin-bottom: 1.5rem;
+        }
+        
+        .summary-card {
+            background: linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .summary-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.5);
+        }
+        
+        .summary-item:last-child {
+            border-bottom: none;
+        }
+        
+        .summary-total {
+            font-weight: 700;
+            font-size: 1.5rem;
+            border-top: 2px solid rgba(255, 255, 255, 0.8);
+            margin-top: 0.5rem;
+            padding-top: 1rem;
+        }
+        
+        .btn-reset {
+            background: linear-gradient(135deg, #ff9a9e 0%, #fad0c4 100%);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            width: 100%;
+        }
+        
+        .btn-reset:hover {
+            transform: scale(1.05);
+        }
+        
+        .tabs {
+            display: flex;
+            flex-wrap: wrap;
+            margin-bottom: 1.5rem;
+            border-bottom: 2px solid #e5e7eb;
+        }
+        
+        .tab {
+            padding: 0.75rem 1.5rem;
+            cursor: pointer;
+            font-weight: 600;
+            border-bottom: 3px solid transparent;
+            transition: var(--transition);
+        }
+        
+        .tab.active {
+            color: var(--color-primary);
+            border-bottom-color: var(--color-primary);
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        @media (max-width: 768px) {
+            .denomination-item {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .input-container {
+                margin-left: 0;
+                margin-top: 1rem;
+                width: 100%;
+            }
+            
+            .input-field {
+                width: 100%;
+            }
+            
+            .tabs {
+                overflow-x: auto;
+                white-space: nowrap;
+            }
+        }
+    </style>
+</head>
+<body class="min-h-screen py-8">
+    <header class="header mb-8">
+        <div class="container">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <i class="fas fa-calculator text-3xl mr-3"></i>
+                    <h1 class="text-2xl font-bold">Contador de Efectivo y Transacciones</h1>
+                </div>
+                <div class="flex items-center">
+                    <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IiNmZmYiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cGF0aCBkPSJNMTIgMHYzTTQgNGwxNS43MiAxNS43MmE1LjA1IDUuMDUgMCAxIDEtNy4xMSA3LjExTDQgNHoiPjwvcGF0aD48L3N2Zz4=" alt="Calculadora" class="h-8">
+                    <span class="ml-2 font-semibold">Sistema Integral</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        <div class="tabs">
+            <div class="tab active" data-tab="cash">Efectivo</div>
+            <div class="tab" data-tab="digital">Digital</div>
+            <div class="tab" data-tab="expenses">Gastos</div>
+            <div class="tab" data-tab="summary">Resumen</div>
+        </div>
+
+        <div class="tab-content active" id="cash-tab">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div>
+                    <div class="card">
+                        <div class="card-header">
+                            <h2>Billetes Peruanos</h2>
+                        </div>
+                        <div class="card-body">
+                            <!-- Billete de 200 -->
+                            <div class="denomination-item bill">
+                                <div class="currency-image">
+                                    <span>200</span>
+                                </div>
+                                <div class="flex-1">
+                                    <h3 class="font-semibold">Billete de 200 Soles</h3>
+                                    <p class="text-gray-600">S/. 200.00</p>
+                                </div>
+                                <div class="input-container">
+                                    <input type="number" min="0" class="input-field denomination-input" data-value="200" data-type="cash" placeholder="0">
+                                    <span class="ml-2 font-semibold">x</span>
+                                </div>
+                            </div>
+                            
+                            <!-- Billete de 100 -->
+                            <div class="denomination-item bill">
+                                <div class="currency-image">
+                                    <span>100</span>
+                                </div>
+                                <div class="flex-1">
+                                    <h3 class="font-semibold">Billete de 100 Soles</h3>
+                                    <p class="text-gray-600">S/. 100.00</p>
+                                </div>
+                                <div class="input-container">
+                                    <input type="number" min="0" class="input-field denomination-input" data-value="100" data-type="cash" placeholder="0">
+                                    <span class="ml-2 font-semibold">x</span>
+                                </div>
+                            </div>
+                            
+                            <!-- Billete de 50 -->
+                            <div class="denomination-item bill">
+                                <div class="currency-image">
+                                    <span>50</span>
+                                </div>
+                                <div class="flex-1">
+                                    <h3 class="font-semibold">Billete de 50 Soles</h3>
+                                    <p class="text-gray-600">S/. 50.00</p>
+                                </div>
+                                <div class="input-container">
+                                    <input type="number" min="0" class="input-field denomination-input" data-value="50" data-type="cash" placeholder="0">
+                                    <span class="ml-2 font-semibold">x</span>
+                                </div>
+                            </div>
+                            
+                            <!-- Billete de 20 -->
+                            <div class="denomination-item bill">
+                                <div class="currency-image">
+                                    <span>20</span>
+                                </div>
+                                <div class="flex-1">
+                                    <h3 class="font-semibold">Billete de 20 Soles</h3>
+                                    <p class="text-gray-600">S/. 20.00</p>
+                                </div>
+                                <div class="input-container">
+                                    <input type="number" min="0" class="input-field denomination-input" data-value="20" data-type="cash" placeholder="0">
+                                    <span class="ml-2 font-semibold">x</span>
+                                </div>
+                            </div>
+                            
+                            <!-- Billete de 10 -->
+                            <div class="denomination-item bill">
+                                <div class="currency-image">
+                                    <span>10</span>
+                                </div>
+                                <div class="flex-1">
+                                    <h3 class="font-semibold">Billete de 10 Soles</h3>
+                                    <p class="text-gray-600">S/. 10.00</p>
+                                </div>
+                                <div class="input-container">
+                                    <input type="number" min="0" class="input-field denomination-input" data-value="10" data-type="cash" placeholder="0">
+                                    <span class="ml-2 font-semibold">x</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div>
+                    <div class="card">
+                        <div class="card-header">
+                            <h2>Monedas Peruanas</h2>
+                        </div>
+                        <div class="card-body">
+                            <!-- Moneda de 5 -->
+                            <div class="denomination-item">
+                                <div class="currency-image">
+                                    <span>5</span>
+                                </div>
+                                <div class="flex-1">
+                                    <h3 class="font-semibold">Moneda de 5 Soles</h3>
+                                    <p class="text-gray-600">S/. 5.00</p>
+                                </div>
+                                <div class="input-container">
+                                    <input type="number" min="0" class="input-field denomination-input" data-value="5" data-type="cash" placeholder="0">
+                                    <span class="ml-2 font-semibold">x</span>
+                                </div>
+                            </div>
+                            
+                            <!-- Moneda de 2 -->
+                            <div class="denomination-item">
+                                <div class="currency-image">
+                                    <span>2</span>
+                                </div>
+                                <div class="flex-1">
+                                    <h3 class="font-semibold">Moneda de 2 Soles</h3>
+                                    <p class="text-gray-600">S/. 2.00</p>
+                                </div>
+                                <div class="input-container">
+                                    <input type="number" min="0" class="input-field denomination-input" data-value="2" data-type="cash" placeholder="0">
+                                    <span class="ml-2 font-semibold">x</span>
+                                </div>
+                            </div>
+                            
+                            <!-- Moneda de 1 -->
+                            <div class="denomination-item">
+                                <div class="currency-image">
+                                    <span>1</span>
+                                </div>
+                                <div class="flex-1">
+                                    <h3 class="font-semibold">Moneda de 1 Sol</h3>
+                                    <p class="text-gray-600">S/. 1.00</p>
+                                </div>
+                                <div class="input-container">
+                                    <input type="number" min="0" class="input-field denomination-input" data-value="1" data-type="cash" placeholder="0">
+                                    <span class="ml-2 font-semibold">x</span>
+                                </div>
+                            </div>
+                            
+                            <!-- Moneda de 0.50 -->
+                            <div class="denomination-item">
+                                <div class="currency-image">
+                                    <span>0.5</span>
+                                </div>
+                                <div class="flex-1">
+                                    <h3 class="font-semibold">Moneda de 50 Céntimos</h3>
+                                    <p class="text-gray-600">S/. 0.50</p>
+                                </div>
+                                <div class="input-container">
+                                    <input type="number" min="0" class="input-field denomination-input" data-value="0.5" data-type="cash" placeholder="0">
+                                    <span class="ml-2 font-semibold">x</span>
+                                </div>
+                            </div>
+                            
+                            <!-- Moneda de 0.20 -->
+                            <div class="denomination-item">
+                                <div class="currency-image">
+                                    <span>0.2</span>
+                                </div>
+                                <div class="flex-1">
+                                    <h3 class="font-semibold">Moneda de 20 Céntimos</h3>
+                                    <p class="text-gray-600">S/. 0.20</p>
+                                </div>
+                                <div class="input-container">
+                                    <input type="number" min="0" class="input-field denomination-input" data-value="0.2" data-type="cash" placeholder="0">
+                                    <span class="ml-2 font-semibold">x</span>
+                                </div>
+                            </div>
+                            
+                            <!-- Moneda de 0.10 -->
+                            <div class="denomination-item">
+                                <div class="currency-image">
+                                    <span>0.1</span>
+                                </div>
+                                <div class="flex-1">
+                                    <h3 class="font-semibold">Moneda de 10 Céntimos</h3>
+                                    <p class="text-gray-600">S/. 0.10</p>
+                                </div>
+                                <div class="input-container">
+                                    <input type="number" min="0" class="input-field denomination-input" data-value="0.1" data-type="cash" placeholder="0">
+                                    <span class="ml-2 font-semibold">x</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-content" id="digital-tab">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div>
+                    <div class="card">
+                        <div class="card-header">
+                            <h2>Pagos Digitales</h2>
+                        </div>
+                        <div class="card-body">
+                            <!-- Yape -->
+                            <div class="denomination-item digital">
+                                <div class="currency-image">
+                                    <i class="fas fa-mobile-alt"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <h3 class="font-semibold">Yape</h3>
+                                    <p class="text-gray-600">Pagos por Yape</p>
+                                </div>
+                                <div class="input-container">
+                                    <span class="mr-2 font-semibold">S/.</span>
+                                    <input type="number" min="0" step="0.01" class="input-field denomination-input" data-value="1" data-type="yape" placeholder="0.00">
+                                </div>
+                            </div>
+                            
+                            <!-- Transferencias -->
+                            <div class="denomination-item digital">
+                                <div class="currency-image">
+                                    <i class="fas fa-exchange-alt"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <h3 class="font-semibold">Transferencias</h3>
+                                    <p class="text-gray-600">Transferencias bancarias</p>
+                                </div>
+                                <div class="input-container">
+                                    <span class="mr-2 font-semibold">S/.</span>
+                                    <input type="number" min="0" step="0.01" class="input-field denomination-input" data-value="1" data-type="transfer" placeholder="0.00">
+                                </div>
+                            </div>
+                            
+                            <!-- Tarjeta de Crédito -->
+                            <div class="denomination-item digital">
+                                <div class="currency-image">
+                                    <i class="fas fa-credit-card"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <h3 class="font-semibold">Tarjeta de Crédito</h3>
+                                    <p class="text-gray-600">Pagos con tarjeta</p>
+                                </div>
+                                <div class="input-container">
+                                    <span class="mr-2 font-semibold">S/.</span>
+                                    <input type="number" min="0" step="0.01" class="input-field denomination-input" data-value="1" data-type="credit" placeholder="0.00">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div>
+                    <div class="card">
+                        <div class="card-header">
+                            <h2>Rechazos y Parciales</h2>
+                        </div>
+                        <div class="card-body">
+                            <!-- Rechazos -->
+                            <div class="denomination-item digital">
+                                <div class="currency-image" style="background: linear-gradient(135deg, #ff6b6b 0%, #ff8e8e 100%);">
+                                    <i class="fas fa-times-circle"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <h3 class="font-semibold">Rechazos</h3>
+                                    <p class="text-gray-600">Pagos rechazados</p>
+                                </div>
+                                <div class="input-container">
+                                    <span class="mr-2 font-semibold">S/.</span>
+                                    <input type="number" min="0" step="0.01" class="input-field denomination-input" data-value="1" data-type="rejected" placeholder="0.00">
+                                </div>
+                            </div>
+                            
+                            <!-- Pagos Parciales -->
+                            <div class="denomination-item digital">
+                                <div class="currency-image" style="background: linear-gradient(135deg, #ffa726 0%, #ffcc80 100%);">
+                                    <i class="fas fa-exclamation-circle"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <h3 class="font-semibold">Pagos Parciales</h3>
+                                    <p class="text-gray-600">Pagos incompletos</p>
+                                </div>
+                                <div class="input-container">
+                                    <span class="mr-2 font-semibold">S/.</span>
+                                    <input type="number" min="0" step="0.01" class="input-field denomination-input" data-value="1" data-type="partial" placeholder="0.00">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-content" id="expenses-tab">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div>
+                    <div class="card">
+                        <div class="card-header">
+                            <h2>Gastos del Día</h2>
+                        </div>
+                        <div class="card-body">
+                            <!-- Gastos de Trabajadores -->
+                            <div class="denomination-item expense">
+                                <div class="currency-image">
+                                    <i class="fas fa-users"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <h3 class="font-semibold">Gastos de Trabajadores</h3>
+                                    <p class="text-gray-600">Pagos a empleados</p>
+                                </div>
+                                <div class="input-container">
+                                    <span class="mr-2 font-semibold">S/.</span>
+                                    <input type="number" min="0" step="0.01" class="input-field denomination-input" data-value="1" data-type="worker_expense" placeholder="0.00">
+                                </div>
+                            </div>
+                            
+                            <!-- Gastos de Carro -->
+                            <div class="denomination-item expense">
+                                <div class="currency-image">
+                                    <i class="fas fa-car"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <h3 class="font-semibold">Gastos de Vehículo</h3>
+                                    <p class="text-gray-600">Combustible, mantenimiento</p>
+                                </div>
+                                <div class="input-container">
+                                    <span class="mr-2 font-semibold">S/.</span>
+                                    <input type="number" min="0" step="0.01" class="input-field denomination-input" data-value="1" data-type="car_expense" placeholder="0.00">
+                                </div>
+                            </div>
+                            
+                            <!-- Otros Gastos -->
+                            <div class="denomination-item expense">
+                                <div class="currency-image">
+                                    <i class="fas fa-shopping-cart"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <h3 class="font-semibold">Otros Gastos</h3>
+                                    <p class="text-gray-600">Gastos varios</p>
+                                </div>
+                                <div class="input-container">
+                                    <span class="mr-2 font-semibold">S/.</span>
+                                    <input type="number" min="0" step="0.01" class="input-field denomination-input" data-value="1" data-type="other_expense" placeholder="0.00">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div>
+                    <div class="card">
+                        <div class="card-header">
+                            <h2>Resumen de Gastos</h2>
+                        </div>
+                        <div class="card-body">
+                            <div class="summary-card">
+                                <div class="summary-item">
+                                    <span>Gastos de Trabajadores:</span>
+                                    <span id="worker-expense-total">S/. 0.00</span>
+                                </div>
+                                <div class="summary-item">
+                                    <span>Gastos de Vehículo:</span>
+                                    <span id="car-expense-total">S/. 0.00</span>
+                                </div>
+                                <div class="summary-item">
+                                    <span>Otros Gastos:</span>
+                                    <span id="other-expense-total">S/. 0.00</span>
+                                </div>
+                                <div class="summary-item summary-total">
+                                    <span>Total Gastos:</span>
+                                    <span id="total-expenses">S/. 0.00</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-content" id="summary-tab">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div>
+                    <div class="card">
+                        <div class="card-header">
+                            <h2>Resumen General</h2>
+                        </div>
+                        <div class="card-body">
+                            <div class="total-display">
+                                S/. <span id="final-total">0.00</span>
+                            </div>
+                            
+                            <div class="summary-card">
+                                <div class="summary-item">
+                                    <span>Efectivo Total:</span>
+                                    <span id="cash-total">S/. 0.00</span>
+                                </div>
+                                <div class="summary-item">
+                                    <span>Yape:</span>
+                                    <span id="yape-total">S/. 0.00</span>
+                                </div>
+                                <div class="summary-item">
+                                    <span>Transferencias:</span>
+                                    <span id="transfer-total">S/. 0.00</span>
+                                </div>
+                                <div class="summary-item">
+                                    <span>Tarjeta de Crédito:</span>
+                                    <span id="credit-total">S/. 0.00</span>
+                                </div>
+                                <div class="summary-item">
+                                    <span>Rechazos:</span>
+                                    <span id="rejected-total">S/. 0.00</span>
+                                </div>
+                                <div class="summary-item">
+                                    <span>Pagos Parciales:</span>
+                                    <span id="partial-total">S/. 0.00</span>
+                                </div>
+                                <div class="summary-item">
+                                    <span>Total Gastos:</span>
+                                    <span id="expenses-total">S/. 0.00</span>
+                                </div>
+                                <div class="summary-item summary-total">
+                                    <span>Total Neto:</span>
+                                    <span id="net-total">S/. 0.00</span>
+                                </div>
+                            </div>
+                            
+                            <button id="reset-btn" class="btn-reset py-3 mt-4">
+                                <i class="fas fa-redo-alt mr-2"></i> Reiniciar Todo
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div>
+                    <div class="card">
+                        <div class="card-header">
+                            <h2>Detalle de Efectivo</h2>
+                        </div>
+                        <div class="card-body">
+                            <div id="cash-breakdown">
+                                <p class="text-center text-gray-600">Ingresa cantidades para ver el desglose</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="mt-12 text-center text-gray-600 container">
+        <p>© 2023 Sistema de Contador de Efectivo y Transacciones - Herramienta integral para negocios</p>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const denominationInputs = document.querySelectorAll('.denomination-input');
+            const tabs = document.querySelectorAll('.tab');
+            const tabContents = document.querySelectorAll('.tab-content');
+            
+            // Inicializar totales
+            let totals = {
+                cash: 0,
+                yape: 0,
+                transfer: 0,
+                credit: 0,
+                rejected: 0,
+                partial: 0,
+                worker_expense: 0,
+                car_expense: 0,
+                other_expense: 0
+            };
+            
+            // Configurar pestañas
+            tabs.forEach(tab => {
+                tab.addEventListener('click', function() {
+                    const tabId = this.getAttribute('data-tab');
+                    
+                    // Desactivar todas las pestañas
+                    tabs.forEach(t => t.classList.remove('active'));
+                    tabContents.forEach(tc => tc.classList.remove('active'));
+                    
+                    // Activar la pestaña seleccionada
+                    this.classList.add('active');
+                    document.getElementById(`${tabId}-tab`).classList.add('active');
+                });
+            });
+            
+            // Función para calcular todos los totales
+            function calculateTotals() {
+                // Reiniciar totales
+                for (let key in totals) {
+                    totals[key] = 0;
+                }
+                
+                // Calcular totales
+                denominationInputs.forEach(input => {
+                    const type = input.getAttribute('data-type');
+                    const value = parseFloat(input.getAttribute('data-value'));
+                    const quantity = type === 'cash' ? (parseInt(input.value) || 0) : (parseFloat(input.value) || 0);
+                    const amount = type === 'cash' ? value * quantity : quantity;
+                    
+                    if (quantity > 0) {
+                        totals[type] += amount;
+                    }
+                });
+                
+                // Actualizar la interfaz
+                updateUI();
+            }
+            
+            // Función para actualizar la interfaz
+            function updateUI() {
+                // Actualizar totales específicos
+                document.getElementById('cash-total').textContent = `S/. ${totals.cash.toFixed(2)}`;
+                document.getElementById('yape-total').textContent = `S/. ${totals.yape.toFixed(2)}`;
+                document.getElementById('transfer-total').textContent = `S/. ${totals.transfer.toFixed(2)}`;
+                document.getElementById('credit-total').textContent = `S/. ${totals.credit.toFixed(2)}`;
+                document.getElementById('rejected-total').textContent = `S/. ${totals.rejected.toFixed(2)}`;
+                document.getElementById('partial-total').textContent = `S/. ${totals.partial.toFixed(2)}`;
+                
+                // Actualizar gastos
+                document.getElementById('worker-expense-total').textContent = `S/. ${totals.worker_expense.toFixed(2)}`;
+                document.getElementById('car-expense-total').textContent = `S/. ${totals.car_expense.toFixed(2)}`;
+                document.getElementById('other-expense-total').textContent = `S/. ${totals.other_expense.toFixed(2)}`;
+                
+                // Calcular total de gastos
+                const totalExpenses = totals.worker_expense + totals.car_expense + totals.other_expense;
+                document.getElementById('total-expenses').textContent = `S/. ${totalExpenses.toFixed(2)}`;
+                document.getElementById('expenses-total').textContent = `S/. ${totalExpenses.toFixed(2)}`;
+                
+                // Calcular total neto
+                const totalIncome = totals.cash + totals.yape + totals.transfer + totals.credit;
+                const totalNet = totalIncome - totalExpenses;
+                document.getElementById('final-total').textContent = totalNet.toFixed(2);
+                document.getElementById('net-total').textContent = `S/. ${totalNet.toFixed(2)}`;
+                
+                // Actualizar desglose de efectivo
+                updateCashBreakdown();
+            }
+            
+            // Función para actualizar el desglose de efectivo
+            function updateCashBreakdown() {
+                const cashBreakdown = document.getElementById('cash-breakdown');
+                let breakdownHTML = '';
+                
+                if (totals.cash > 0) {
+                    breakdownHTML = '<div class="space-y-2">';
+                    
+                    denominationInputs.forEach(input => {
+                        if (input.getAttribute('data-type') === 'cash') {
+                            const value = parseFloat(input.getAttribute('data-value'));
+                            const quantity = parseInt(input.value) || 0;
+                            
+                            if (quantity > 0) {
+                                const subtotal = value * quantity;
+                                breakdownHTML += `
+                                    <div class="flex justify-between py-1 border-b border-gray-200">
+                                        <span>${quantity} x S/. ${value.toFixed(2)}</span>
+                                        <span class="font-semibold">S/. ${subtotal.toFixed(2)}</span>
+                                    </div>
+                                `;
+                            }
+                        }
+                    });
+                    
+                    breakdownHTML += '</div>';
+                } else {
+                    breakdownHTML = '<p class="text-center text-gray-600">Ingresa cantidades para ver el desglose</p>';
+                }
+                
+                cashBreakdown.innerHTML = breakdownHTML;
+            }
+            
+            // Agregar event listeners a los inputs
+            denominationInputs.forEach(input => {
+                input.addEventListener('input', calculateTotals);
+            });
+            
+            // Función para reiniciar todo
+            function resetAll() {
+                denominationInputs.forEach(input => {
+                    input.value = '';
+                });
+                calculateTotals();
+                
+                // Volver a la primera pestaña
+                tabs.forEach(t => t.classList.remove('active'));
+                tabContents.forEach(tc => tc.classList.remove('active'));
+                tabs[0].classList.add('active');
+                tabContents[0].classList.add('active');
+            }
+            
+            // Agregar event listener al botón de reinicio
+            document.getElementById('reset-btn').addEventListener('click', resetAll);
+            
+            // Calcular los totales iniciales
+            calculateTotals();
+        });
+    </script>
+</body>
+</html>
