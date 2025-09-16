@@ -1,0 +1,382 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Buscador de Productos desde Excel</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <style>
+    body{padding:20px;background:#f8f9fa}
+    .card{margin-bottom:16px}
+    .small-muted{font-size:0.9rem;color:#6c757d}
+    pre {white-space:pre-wrap}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h3 class="mb-3">Importar Excel → Buscar por código → Calcular precio y bonificaciones</h3>
+
+    <div class="card">
+      <div class="card-body">
+        <h5 class="card-title">1) Cargar archivos Excel (puedes cargar varios)</h5>
+        <input id="fileInput" type="file" accept=".xlsx,.xls,.csv" multiple class="form-control mb-2"/>
+        <div class="small-muted">Se leerán todas las hojas del/los archivos y se unirán en una sola tabla interna.</div>
+      </div>
+    </div>
+
+    <div id="mappingCard" class="card d-none">
+      <div class="card-body">
+        <h5 class="card-title">2) Mapear columnas (elige la columna que corresponde)</h5>
+        <div class="row gy-2">
+          <div class="col-md-4"><label>Código principal</label><select id="colCode" class="form-select"></select></div>
+          <div class="col-md-4"><label>Código secundario (opcional)</label><select id="colCode2" class="form-select"></select></div>
+          <div class="col-md-4"><label>Descripción</label><select id="colDesc" class="form-select"></select></div>
+          <div class="col-md-4"><label>Cantidad vendida (columna)</label><select id="colQty" class="form-select"></select></div>
+          <div class="col-md-4"><label>Precio unitario (opcional)</label><select id="colPrice" class="form-select"></select></div>
+          <div class="col-md-4"><label>"Por la compra de" (trigger rule)</label><select id="colTrigger" class="form-select"></select></div>
+          <div class="col-md-4"><label>"En Bonificación" (qué se bonifica)</label><select id="colBon" class="form-select"></select></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="searchCard" class="card d-none">
+      <div class="card-body">
+        <h5 class="card-title">3) Buscar por código y calcular</h5>
+        <div class="row g-2 align-items-end">
+          <div class="col-md-4">
+            <label>Buscar código</label>
+            <input id="searchCode" class="form-control" placeholder="Escribe el código (por ejemplo 800991)"/>
+          </div>
+          <div class="col-md-2">
+            <label>Cantidad a comprar</label>
+            <input id="buyQty" type="number" min="1" value="1" class="form-control"/>
+          </div>
+          <div class="col-md-2">
+            <button id="btnCalc" class="btn btn-primary w-100">Calcular</button>
+          </div>
+          <div class="col-md-4 text-end">
+            <button id="exportCsv" class="btn btn-outline-secondary">Exportar resultado a CSV</button>
+          </div>
+        </div>
+
+        <hr/>
+
+        <div id="resultsArea">
+          <h6>Resultados</h6>
+          <div id="resultsSummary" class="mb-2 small-muted"></div>
+          <div id="resultsTableWrap" style="max-height:400px; overflow:auto;">
+            <table id="resultsTable" class="table table-sm table-striped">
+              <thead id="resultsHead"></thead>
+              <tbody id="resultsBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-body">
+        <h6>Instrucciones rápidas</h6>
+        <ul>
+          <li>Carga tus archivos Excel. Si tus hojas usan nombres distintos, selecciona las columnas correctas en el mapeo.</li>
+          <li>El campo <em>Por la compra de</em> se interpreta como número: si hay "6" → aplica por cada 6 unidades compradas.</li>
+          <li>Si la columna <em>En Bonificación</em> contiene un número, se interpretará como cuántas unidades bonificadas se obtienen por el trigger.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card mt-3 d-none" id="debugCard">
+      <div class="card-body">
+        <h6>Depuración (contenido cargado)</h6>
+        <pre id="debugPre"></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- dependencias: SheetJS para leer excel -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script>
+    // almacenamiento de todas las filas cargadas
+    let allRows = []; // array de objetos (columnName -> value)
+    let headers = []; // lista de nombres de columnas (únicos)
+    const fileInput = document.getElementById('fileInput');
+    const mappingCard = document.getElementById('mappingCard');
+    const searchCard = document.getElementById('searchCard');
+    const debugCard = document.getElementById('debugCard');
+    const debugPre = document.getElementById('debugPre');
+
+    function resetState(){
+      allRows = [];
+      headers = [];
+      document.getElementById('resultsHead').innerHTML = '';
+      document.getElementById('resultsBody').innerHTML = '';
+      mappingCard.classList.add('d-none');
+      searchCard.classList.add('d-none');
+      debugCard.classList.add('d-none');
+    }
+
+    fileInput.addEventListener('change', async (e) => {
+      resetState();
+      const files = Array.from(e.target.files);
+      if(files.length === 0) return;
+      for(const f of files){
+        await readExcelFile(f);
+      }
+      if(allRows.length === 0){
+        alert('No se encontró contenido en los archivos cargados.');
+        return;
+      }
+      populateHeaderSelectors();
+      mappingCard.classList.remove('d-none');
+      debugCard.classList.remove('d-none');
+      debugPre.textContent = `Filas cargadas: ${allRows.length}\nEncabezados detectados:\n- ${headers.join('\n- ')}`;
+    });
+
+    function readExcelFile(file){
+      return new Promise((res, rej) => {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          const data = new Uint8Array(ev.target.result);
+          const workbook = XLSX.read(data, {type:'array'});
+          workbook.SheetNames.forEach(name => {
+            const ws = workbook.Sheets[name];
+            const arr = XLSX.utils.sheet_to_json(ws, {defval: ''});
+            // arr es array de objetos usando la primera fila como claves
+            arr.forEach(r => {
+              allRows.push(r);
+              Object.keys(r).forEach(k => { if(!headers.includes(k)) headers.push(k); });
+            });
+          });
+          res();
+        };
+        reader.onerror = rej;
+        reader.readAsArrayBuffer(file);
+      });
+    }
+
+    function populateHeaderSelectors(){
+      const selects = ['colCode','colCode2','colDesc','colQty','colPrice','colTrigger','colBon'];
+      selects.forEach(id=>{
+        const s = document.getElementById(id);
+        s.innerHTML = '';
+        const emptyOpt = document.createElement('option');
+        emptyOpt.value = '';
+        emptyOpt.text = '-- (ninguno) --';
+        s.appendChild(emptyOpt);
+        headers.forEach(h=>{
+          const opt = document.createElement('option');
+          opt.value = h;
+          opt.text = h;
+          s.appendChild(opt);
+        });
+      });
+
+      // Intentos de selección automática por nombres comunes (en español/inglés)
+      const guess = (names)=> headers.find(h => names.some(n => h.toLowerCase().includes(n))) || '';
+      document.getElementById('colCode').value = guess(['codigo','código','code','codig']);
+      document.getElementById('colCode2').value = guess(['codigo2','codigo 2','code2','código2']);
+      document.getElementById('colDesc').value = guess(['descripcion','descri','producto','por la compra','por la compra de'] ) || guess(['description','desc','name']);
+      document.getElementById('colQty').value = guess(['cantidad','cant','qty','cantidad vendida','cantidad de bonificacion','cantidad ']);
+      document.getElementById('colPrice').value = guess(['precio','price','monto','monto de','valor']);
+      document.getElementById('colTrigger').value = guess(['por la compra','por compra','por la compra de','por la compra de:','por la compra de']);
+      document.getElementById('colBon').value = guess(['en bonificacion','bonificacion','bonificación','bonif','bonif.','bonificaci']);
+      searchCard.classList.remove('d-none');
+    }
+
+    // util: obtiene valor limpio de fila
+    function getVal(row,col){ if(!col) return ''; return (row[col] !== undefined && row[col] !== null) ? String(row[col]).trim() : ''; }
+
+    document.getElementById('btnCalc').addEventListener('click',()=>{
+      const code = document.getElementById('searchCode').value.trim();
+      if(!code){ alert('Escribe un código para buscar.'); return; }
+      const buyQty = parseFloat(document.getElementById('buyQty').value) || 0;
+      const colCode = document.getElementById('colCode').value;
+      const colCode2 = document.getElementById('colCode2').value;
+      const colDesc = document.getElementById('colDesc').value;
+      const colQty = document.getElementById('colQty').value;
+      const colPrice = document.getElementById('colPrice').value;
+      const colTrigger = document.getElementById('colTrigger').value;
+      const colBon = document.getElementById('colBon').value;
+
+      // buscar filas que contengan el código (en code o code2)
+      const matches = allRows.filter(r => {
+        const a = getVal(r,colCode).toLowerCase();
+        const b = getVal(r,colCode2).toLowerCase();
+        const q = code.toLowerCase();
+        return (a && a.includes(q)) || (b && b.includes(q));
+      });
+
+      // si no coincide exactamente, buscar también filas donde code aparece como parte de otra cadena (ya incluido)
+      if(matches.length === 0){
+        // como fallback: buscar en todas las columnas por coincidencia
+        for(const r of allRows){
+          for(const h of headers){
+            if(getVal(r,h).toLowerCase().includes(code.toLowerCase())){
+              matches.push(r);
+              break;
+            }
+          }
+        }
+      }
+
+      renderResults(matches, {colCode,colCode2,colDesc,colQty,colPrice,colTrigger,colBon,buyQty});
+    });
+
+    function parseNumberLike(s){
+      if(!s && s !== 0) return NaN;
+      // quitar comas, dolar, S/, espacios
+      s = String(s).replace(/[^0-9\.,-]/g,'').replace(/\./g,'').replace(/,/g,'.');
+      const v = parseFloat(s);
+      return isNaN(v)?NaN:v;
+    }
+
+    function renderResults(rows, opts){
+      const {colCode,colCode2,colDesc,colQty,colPrice,colTrigger,colBon,buyQty} = opts;
+      const th = document.getElementById('resultsHead');
+      const tb = document.getElementById('resultsBody');
+      th.innerHTML = '';
+      tb.innerHTML = '';
+      const columnsToShow = [];
+      if(colCode) columnsToShow.push(colCode);
+      if(colCode2) columnsToShow.push(colCode2);
+      if(colDesc) columnsToShow.push(colDesc);
+      if(colQty) columnsToShow.push(colQty);
+      if(colPrice) columnsToShow.push(colPrice);
+      if(colTrigger) columnsToShow.push(colTrigger);
+      if(colBon) columnsToShow.push(colBon);
+      // agregar columnas extra
+      columnsToShow.push('__calculatedBon__');
+      columnsToShow.push('__calculatedTotalPrice__');
+
+      // encabezado
+      const headRow = document.createElement('tr');
+      columnsToShow.forEach(c => {
+        const thn = document.createElement('th');
+        if(c === '__calculatedBon__') thn.textContent = 'Bonificación calculada';
+        else if(c === '__calculatedTotalPrice__') thn.textContent = 'Total precio';
+        else thn.textContent = c;
+        headRow.appendChild(thn);
+      });
+      th.appendChild(headRow);
+
+      // si no hay filas
+      if(rows.length === 0){
+        const tr = document.createElement('tr');
+        const td = document.createElement('td');
+        td.colSpan = columnsToShow.length;
+        td.innerHTML = '<em>No se encontraron filas que coincidan con ese código.</em>';
+        tr.appendChild(td);
+        tb.appendChild(tr);
+        document.getElementById('resultsSummary').textContent = '0 coincidencias';
+        return;
+      }
+
+      // procesar cada fila y calcular bonificaciones
+      let grandTotalPrice = 0;
+      let totalBonifiedUnits = 0;
+      rows.forEach((r,idx) => {
+        const tr = document.createElement('tr');
+
+        // interpretar trigger y bon
+        const triggerRaw = getVal(r,colTrigger);
+        const bonRaw = getVal(r,colBon);
+        // parsear número de trigger (por la compra de)
+        let triggerNum = parseNumberLike(triggerRaw);
+        if(isNaN(triggerNum)) {
+          // si la cadena contiene algo como "6 unidades" extraer primer número
+          const m = String(triggerRaw).match(/(\d+)/);
+          triggerNum = m ? parseInt(m[1]) : NaN;
+        }
+        // bon quantity
+        let bonQty = parseNumberLike(bonRaw);
+        if(isNaN(bonQty)){
+          // si bonRaw contiene códigos (ej '801368/801378'), no hay cantidad numérica; en tal caso marcaremos como "ver códigos"
+          bonQty = NaN;
+        }
+
+        // calcular bonificaciones según buyQty y triggerNum
+        let calcBon = '';
+        if(!isNaN(triggerNum) && triggerNum > 0 && buyQty > 0){
+          const times = Math.floor(buyQty / triggerNum);
+          if(!isNaN(bonQty)){
+            const totalBonForThis = times * bonQty;
+            calcBon = `${totalBonForThis} (x${times} por regla ${triggerNum})`;
+            totalBonifiedUnits += totalBonForThis;
+          } else {
+            // bonificación no numérica: mostrar la cadena de bonificación y las veces que aplica
+            if(times > 0){
+              calcBon = `${bonRaw || '(producto(s) en bonificación)'} — aplica ${times} vez(es)`;
+            } else {
+              calcBon = bonRaw || '';
+            }
+          }
+        } else {
+          // si no hay trigger numérico, solo mostrar el contenido de la columna bon
+          if(bonRaw) calcBon = bonRaw;
+        }
+
+        // calcular precio total si hay precio unitario mapeado
+        let totalPrice = '';
+        if(colPrice){
+          const priceVal = parseNumberLike(getVal(r,colPrice));
+          if(!isNaN(priceVal) && buyQty > 0){
+            const t = priceVal * buyQty;
+            totalPrice = t.toFixed(2);
+            grandTotalPrice += t;
+          } else {
+            totalPrice = getVal(r,colPrice) || '';
+          }
+        }
+
+        columnsToShow.forEach(c => {
+          const td = document.createElement('td');
+          if(c === '__calculatedBon__') td.textContent = calcBon;
+          else if(c === '__calculatedTotalPrice__') td.textContent = totalPrice;
+          else td.textContent = getVal(r,c);
+          tr.appendChild(td);
+        });
+
+        tb.appendChild(tr);
+      });
+
+      document.getElementById('resultsSummary').textContent = `${rows.length} fila(s) encontrada(s). Total bonificaciones estimadas: ${totalBonifiedUnits}. Total precio (sumado por filas): ${grandTotalPrice ? grandTotalPrice.toFixed(2) : 'N/A'}`;
+      // guardar las filas renderizadas para export
+      window._lastResultRows = {rows, columnsToShow, opts};
+    }
+
+    // Exportar a CSV (lo que aparece en tabla)
+    document.getElementById('exportCsv').addEventListener('click', ()=>{
+      const last = window._lastResultRows;
+      if(!last){ alert('No hay resultado para exportar.'); return; }
+      const {rows, columnsToShow} = last;
+      // construir CSV
+      const csvRows = [];
+      csvRows.push(columnsToShow.map(h => `"${h.replace(/"/g,'""')}"`).join(','));
+      rows.forEach(r=>{
+        const cells = columnsToShow.map(c => {
+          if(c === '__calculatedBon__' || c === '__calculatedTotalPrice__'){
+            // extraer del DOM (más fácil) -> buscarem en tabla
+            const table = document.getElementById('resultsTable');
+            // fallback vacío
+            return '""';
+          } else {
+            const v = getVal(r,c);
+            return `"${String(v).replace(/"/g,'""')}"`;
+          }
+        });
+        csvRows.push(cells.join(','));
+      });
+      const csvContent = csvRows.join('\n');
+      const blob = new Blob([csvContent], {type: 'text/csv;charset=utf-8;'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'resultados.csv';
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+  </script>
+</body>
+</html>
